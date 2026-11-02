@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 로컬 개발 환경과 환경변수
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# 외부 저장소 (URDF) 는 clone 해서 쓴다
+third_party/*
+!third_party/.gitkeep
+
+# 큰 파일
+*.mp4
+*.avi
+data/**/raw/

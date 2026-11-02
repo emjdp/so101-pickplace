@@ -1,0 +1,9 @@
+[project]
+name = "so101-pickplace"
+version = "0.1.0"
+description = "SO-101 탑뷰 픽앤플레이스: 기구학 기반 제어와 ACT 비교 (소프트웨어융합개론 텀프로젝트 1팀)"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

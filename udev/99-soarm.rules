@@ -1,0 +1,28 @@
+# SO-101 + 탑뷰 C270 고정 심볼릭 링크
+#
+# 재부팅이나 USB 재연결 때 /dev/ttyACM*, /dev/video* 번호가 바뀌어도
+# 항상 같은 이름으로 열 수 있게 시리얼 번호·제품 ID로 이름을 고정한다.
+# (soarmie-acts-up 의 같은 이름 규칙을 대체한다. 탑뷰만 C920 → C270 으로 바뀜)
+#
+# 적용:
+#   sudo cp udev/99-soarm.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+# 확인:
+#   ls -l /dev/soarm_*
+#
+# 팔 시리얼은 2026-08-03 lerobot-find-port 로 확인한 값이다. 다른 보드로 바꿨으면
+#   udevadm info -a -n /dev/ttyACM0 | grep serial
+# 로 다시 확인해서 고친다.
+
+# ── 로봇 팔 (CH343 USB-serial, 1a86:55d3) ─────────────────────────
+# 팔로워: 그리퍼 + 손목 카메라가 달린 쪽
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d3", ATTRS{serial}=="5B7B015254", SYMLINK+="soarm_follower"
+# 리더: 손으로 잡고 조종하는 쪽
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d3", ATTRS{serial}=="5B7B014404", SYMLINK+="soarm_leader"
+
+# ── 카메라 ─────────────────────────────────────────────────────────
+# ATTR{index}=="0" 이 실제 캡처 노드다. index 1 은 메타데이터 노드라 제외한다.
+# 탑뷰 (Logitech C270 046d:0825)
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0825", ATTR{index}=="0", SYMLINK+="soarm_cam_top"
+# 손목 (icSpring 2993:0858) — 확장 실험용
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="2993", ATTRS{idProduct}=="0858", ATTR{index}=="0", SYMLINK+="soarm_cam_wrist"
