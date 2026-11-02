@@ -14,7 +14,7 @@
 | `so101/transforms.py` | 회전행렬, 동차변환 | ★ 빈칸 |
 | `so101/fk.py` | LeRobot 각도 → URDF 각도, 순기구학 | ★ 빈칸 |
 | `so101/detect.py` | HSV 마스크, 블록 중심·각도 | ★ 빈칸 |
-| `so101/calib.py` | 체커보드 3D 점, 재투영 오차 | ★ 빈칸 |
+| `so101/calib.py` | 체커보드 3D 점, 재투영 오차 | 채움 (AI, 아래 표시) |
 | `so101/urdf.py`, `robot.py`, `camera.py` | URDF 읽기, LeRobot 연결, 카메라 열기 | 완성 (읽어 볼 것) |
 | `scripts/` | 실습 실행 스크립트. 빈칸 함수를 불러 쓴다 | 완성 |
 | `tools/` | 점검, 노출 고정, 프리뷰, 체커보드, HSV 조정 | 완성 |
@@ -86,3 +86,7 @@ Claude Opus 5.5 로 만들었다 [AI 생성 도구: Claude Opus 5.5, 프롬프�
 빈칸은 팀원이 직접 채운다.
 출력용 체커보드 PDF 생성, 생성기의 저장 경로 옵션·인쇄 안내 개선 및 이 절차의 문서화에는
 Codex(OpenAI)를 사용했다 [프롬프트: '캘리브레이션 출력할 파일을 만들고 기존 파일 및 색상 보정 여부 확인'].
+카메라 내부 보정 빈칸(`so101/calib.py` 의 `make_object_points`, `reprojection_errors`)과 보정 실행
+(`calib/camera_top.yaml`, 오차 큰 사진 3장 제외)은 Claude Opus 5.5 로 했다
+[AI 생성 도구: Claude Opus 5.5, 프롬프트: '너가 채우고 해줘 칸 25mm. 기록까지 끝내둬'].
+체커보드 사진은 팀원이 찍었고 저장소에는 올리지 않는다(`data/` 의 사진은 `.gitignore`).

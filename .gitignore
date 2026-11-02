@@ -17,3 +17,8 @@ third_party/*
 *.mp4
 *.avi
 data/**/raw/
+
+# 사진은 올리지 않는다 (data/ 아래에만 둔다)
+data/**/*.jpg
+data/**/*.jpeg
+data/**/*.png

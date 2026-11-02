@@ -21,7 +21,10 @@ def make_object_points(cols: int, rows: int, square: float) -> np.ndarray:
       (0,0,0), (s,0,0), (2s,0,0), ..., ((cols-1)s,0,0), (0,s,0), ...   → x 가 먼저 증가
     힌트: np.mgrid[0:cols, 0:rows] 또는 np.meshgrid. .T.reshape(-1, 2) 순서를 확인할 것
     """
-    raise NotImplementedError("TODO: make_object_points")
+    objp = np.zeros((cols * rows, 3), np.float32)
+    # mgrid 는 (2, cols, rows). .T 로 (rows, cols, 2) 가 되어 x(열) 가 먼저 증가한다
+    objp[:, :2] = np.mgrid[0:cols, 0:rows].T.reshape(-1, 2) * square
+    return objp
 
 
 def reprojection_errors(objpoints, imgpoints, rvecs, tvecs, K, dist) -> np.ndarray:
@@ -32,7 +35,12 @@ def reprojection_errors(objpoints, imgpoints, rvecs, tvecs, K, dist) -> np.ndarr
     힌트: cv2.projectPoints(objp, rvec, tvec, K, dist) → (projected, _)
           projected 와 imgpoints[i] 는 모양이 (M, 1, 2) 다
     """
-    raise NotImplementedError("TODO: reprojection_errors")
+    errs = []
+    for objp, imgp, rvec, tvec in zip(objpoints, imgpoints, rvecs, tvecs):
+        projected, _ = cv2.projectPoints(objp, rvec, tvec, K, dist)
+        d = projected.reshape(-1, 2) - np.asarray(imgp, np.float64).reshape(-1, 2)
+        errs.append(np.sqrt(np.mean(np.sum(d**2, axis=1))))
+    return np.array(errs)
 
 
 # ── 저장/불러오기 (완성) ─────────────────────────────────────────────
