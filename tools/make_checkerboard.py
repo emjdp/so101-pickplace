@@ -2,6 +2,7 @@
 
 python tools/make_checkerboard.py                 # 내부 코너 9x6, 한 칸 25 mm
 python tools/make_checkerboard.py --cols 8 --rows 5 --square-mm 30
+python tools/make_checkerboard.py --output output/pdf/checkerboard_9x6_25mm.pdf
 
 인쇄할 때 '실제 크기(100%)' 로 뽑고, 인쇄된 칸 크기를 자로 다시 잰다.
 보정에는 잰 값을 쓴다 (프린터가 몇 % 줄여서 뽑는 경우가 많다).
@@ -13,7 +14,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from PIL import Image, ImageDraw  # noqa: E402
+from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 import config  # noqa: E402
 
@@ -21,6 +22,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--cols", type=int, default=9, help="가로 내부 코너 수")
 ap.add_argument("--rows", type=int, default=6, help="세로 내부 코너 수")
 ap.add_argument("--square-mm", type=float, default=25.0)
+ap.add_argument("--output", type=Path, help="PDF 저장 위치 (기본: data/checkerboard_...pdf)")
 args = ap.parse_args()
 
 DPI = 300
@@ -38,9 +40,14 @@ for j in range(ny):
     for i in range(nx):
         if (i + j) % 2 == 0:
             d.rectangle([x0 + i * s, y0 + j * s, x0 + (i + 1) * s - 1, y0 + (j + 1) * s - 1], fill=0)
-d.text((x0, y0 + ny * s + px(4)), f"inner corners {args.cols}x{args.rows}, square {args.square_mm} mm @ 100% scale", fill=0)
+d.text(
+    (x0, y0 + ny * s + px(4)),
+    f"{args.cols}x{args.rows} inner corners | {args.square_mm:g} mm squares | Print at 100% (Actual size), no Fit to page",
+    font=ImageFont.load_default(size=px(2.5)),
+    fill=0,
+)
 
-out = config.DATA_DIR / f"checkerboard_{args.cols}x{args.rows}_{args.square_mm:g}mm.pdf"
+out = args.output or config.DATA_DIR / f"checkerboard_{args.cols}x{args.rows}_{args.square_mm:g}mm.pdf"
 out.parent.mkdir(parents=True, exist_ok=True)
 Image.init()  # PDF 저장에 필요한 플러그인을 불러온다
 img.save(out, resolution=DPI)

@@ -57,6 +57,20 @@ python tools/make_checkerboard.py && python scripts/calib_capture.py
 pytest tests/test_calib.py && python scripts/calib_intrinsics.py --square-mm <잰 값>
 ```
 
+## 인쇄할 체커보드와 색상 설정
+
+출력용 [체커보드 PDF](output/pdf/checkerboard_9x6_25mm.pdf)를 준비해 두었다.
+A4 가로, 내부 코너 9×6(칸 수 10×7), 한 칸 25 mm 기준이다.
+**실제 크기 100%**로 인쇄하고 **페이지에 맞춤은 끈다**. 인쇄된 칸 한 변을 자로 재서
+`--square-mm`에 넣고, 종이는 평평한 판에 붙인다.
+다시 만들기: `python tools/make_checkerboard.py --output output/pdf/checkerboard_9x6_25mm.pdf`.
+
+체커보드는 카메라 내부 파라미터와 렌즈 왜곡을 구하는 용도이며 색상 보정용이 아니다.
+색상 검출은 `tools/lock_camera.sh`로 노출·화이트밸런스를 고정한 다음,
+실제로 쓸 블록을 놓고 `python tools/hsv_tuner.py blue`로 HSV 범위를 조정하는 구성이다.
+`s`로 `calib/hsv_blue.json`을 저장한다(빨강은 `red --ranges 2`).
+기준 색상표로 RGB 보정 행렬을 구하는 기능은 현재 구현하지 않았다.
+
 ## 장치
 
 | 장치 | 링크 | 비고 |
@@ -70,3 +84,5 @@ pytest tests/test_calib.py && python scripts/calib_intrinsics.py --square-mm <�
 과제 규정에 따라 AI 가 만든 코드는 출처를 남긴다. 이 저장소의 초기 뼈대(완성 도구, 빈칸 틀, 테스트)는
 Claude Opus 5.5 로 만들었다 [AI 생성 도구: Claude Opus 5.5, 프롬프트: '텀프로젝트 1~4주차를 팀원과 공부하며 진행할 수 있게 준비'].
 빈칸은 팀원이 직접 채운다.
+출력용 체커보드 PDF 생성, 생성기의 저장 경로 옵션·인쇄 안내 개선 및 이 절차의 문서화에는
+Codex(OpenAI)를 사용했다 [프롬프트: '캘리브레이션 출력할 파일을 만들고 기존 파일 및 색상 보정 여부 확인'].
