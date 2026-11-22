@@ -13,9 +13,12 @@ venv/
 third_party/*
 !third_party/.gitkeep
 
-# 큰 파일
+# 큰 파일 및 학습 체크포인트
 *.mp4
 *.avi
+*.tar.gz
+*.safetensors
+outputs/
 data/**/raw/
 
 # 사진은 올리지 않는다 (data/ 아래에만 둔다)

@@ -30,7 +30,7 @@ def test_fixed_joint_ignores_angle(kin):
 def test_zero_pose_reference(kin):
     """관절각이 모두 0 일 때 그리퍼 끝 위치.
 
-    기준값은 Claude 가 so101_new_calib.urdf (SO-ARM100 main, 2026-11-02) 로 계산한 값이다.
+    기준값은 so101_new_calib.urdf (SO-ARM100 main, 2026-11-02) 로 계산한 값이다.
     URDF 가 업데이트돼서 값이 바뀌었을 수도 있으니, 틀리면 yourdfpy 비교 테스트 결과도 같이 볼 것.
     """
     T = kin.fk(np.zeros(5))

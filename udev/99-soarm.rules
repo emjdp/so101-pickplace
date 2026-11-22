@@ -2,7 +2,6 @@
 #
 # 재부팅이나 USB 재연결 때 /dev/ttyACM*, /dev/video* 번호가 바뀌어도
 # 항상 같은 이름으로 열 수 있게 시리얼 번호·제품 ID로 이름을 고정한다.
-# (soarmie-acts-up 의 같은 이름 규칙을 대체한다. 탑뷰만 C920 → C270 으로 바뀜)
 #
 # 적용:
 #   sudo cp udev/99-soarm.rules /etc/udev/rules.d/
