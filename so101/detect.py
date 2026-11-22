@@ -23,6 +23,9 @@ class Detection:
     box: np.ndarray  # minAreaRect 꼭짓점 4개 (4, 2), 그리기용
 
 
+KERNEL = np.ones((5, 5), np.uint8)
+
+
 def make_mask(bgr: np.ndarray, hsv_ranges: list[tuple]) -> np.ndarray:
     """색 범위 안의 픽셀은 255, 나머지는 0 인 마스크 (H, W) uint8.
 
@@ -32,7 +35,13 @@ def make_mask(bgr: np.ndarray, hsv_ranges: list[tuple]) -> np.ndarray:
     힌트: cv2.cvtColor(..., cv2.COLOR_BGR2HSV), cv2.inRange, cv2.bitwise_or
           마지막에 cv2.morphologyEx 로 OPEN(점 잡음 제거) → CLOSE(구멍 메우기)
     """
-    raise NotImplementedError("TODO: make_mask")
+    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    mask = np.zeros(bgr.shape[:2], np.uint8)
+    for lo, hi in hsv_ranges:
+        mask = cv2.bitwise_or(mask, cv2.inRange(hsv, np.array(lo), np.array(hi)))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, KERNEL)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, KERNEL)
+    return mask
 
 
 def find_block(mask: np.ndarray, min_area: float = 150.0) -> Detection | None:
@@ -44,7 +53,24 @@ def find_block(mask: np.ndarray, min_area: float = 150.0) -> Detection | None:
           각도: cv2.minAreaRect → ((cx, cy), (w, h), angle). angle % 90 으로 [0, 90) 에 맞춘다
           box : cv2.boxPoints(rect)
     """
-    raise NotImplementedError("TODO: find_block")
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+    c = max(contours, key=cv2.contourArea)
+    area = float(cv2.contourArea(c))
+    if area < min_area:
+        return None
+    M = cv2.moments(c)
+    if M["m00"] == 0:
+        return None
+    rect = cv2.minAreaRect(c)
+    return Detection(
+        u=float(M["m10"] / M["m00"]),
+        v=float(M["m01"] / M["m00"]),
+        angle_deg=float(rect[2] % 90),
+        area=area,
+        box=cv2.boxPoints(rect),
+    )
 
 
 def detect_block(bgr: np.ndarray, hsv_ranges: list[tuple], min_area: float = 150.0) -> Detection | None:
