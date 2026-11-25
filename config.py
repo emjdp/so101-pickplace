@@ -42,9 +42,9 @@ HOMOGRAPHY_CALIB = ROOT / "calib" / "homography.json"
 # ── 작업 영역 및 상자 기본 위치 (base_link 기준 [m]) ────────────────
 TABLE_Z_M = 0.0
 BLOCK_HEIGHT_M = 0.025
-BOX_XYZ_M = (0.20, -0.15, 0.06)
-WORKSPACE_X_M = (0.12, 0.38)
-WORKSPACE_Y_M = (-0.22, 0.22)
+BOX_XYZ_M = (0.198, -0.074, 0.065)
+WORKSPACE_X_M = (0.12, 0.33)
+WORKSPACE_Y_M = (-0.12, 0.14)
 
 # ── 시스템 B (ACT 모방학습) 기본 설정 ───────────────────────────────
 ACT_REPO_ID = "emjdp/so101_pickplace"

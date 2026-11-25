@@ -90,10 +90,9 @@ def main() -> None:
         robot = connect_follower(max_relative_target=15.0)
 
     try:
-        if calib.K is not None and calib.dist is not None and not args.dry_run:
-            proc_frame = cv2.undistort(frame, calib.K, calib.dist)
-        else:
-            proc_frame = frame
+        # HomographyCalib.pixel_to_xy()가 내부에서 K, dist로 왜곡 보정을 수행하므로
+        # 원본 프레임에서 검출해야 이중 왜곡 보정을 피할 수 있다.
+        proc_frame = frame
 
         det = detect_block(proc_frame, hsv_ranges)
         snap_dir = config.DATA_DIR / "system_a"
@@ -117,7 +116,8 @@ def main() -> None:
             realtime=not args.dry_run,
         )
         status = "성공" if res.ok else f"실패 ({FAILURE_CAUSES.get(res.failure_cause, res.failure_cause)})"
-        print(f"[시스템 A 결과] {status} | 소요 시간: {res.elapsed_s:.2f} s | 상세: {res.detail}")
+        extra = f" | 그리퍼={res.gripper_opening}%" if res.gripper_opening is not None else ""
+        print(f"[시스템 A 결과] {status} | 소요 시간: {res.elapsed_s:.2f} s{extra} | 상세: {res.detail}")
 
         if args.log:
             success = 1 if res.ok else 0

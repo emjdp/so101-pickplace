@@ -65,7 +65,7 @@ def plan_min_jerk_trajectory(
     full_goal = {**start_deg, **{m: float(v) for m, v in goal_deg.items() if m in ALL_MOTORS}}
     span = max((abs(full_goal[m] - start_deg[m]) for m in ARM_JOINTS), default=0.0)
     gspan = abs(full_goal.get("gripper", start_deg.get("gripper", 0.0)) - start_deg.get("gripper", 0.0))
-    duration = max(1.875 * span / max(speed_deg_s, 1.0), gspan / 160.0, 0.25)
+    duration = max(1.875 * span / max(speed_deg_s, 1.0), gspan / 45.0, 0.25)
     n = max(2, int(round(duration * rate_hz)))
     steps = []
     for i in range(1, n + 1):
@@ -280,14 +280,23 @@ def move_smooth(
     return joint_positions(robot.get_observation())
 
 
-def wait_gripper_settled(robot, timeout_s: float = 1.2, realtime: bool = True) -> float:
-    """집게가 닫히거나 물체에 걸려 멈출 때까지 기다린 뒤 개도(%)를 반환한다."""
+def wait_gripper_settled(
+    robot,
+    timeout_s: float = 1.5,
+    realtime: bool = True,
+    target_gripper: float | None = None,
+) -> float:
+    """집게가 목표 개도에 도달하거나 물체에 걸려 멈출 때까지 기다린 뒤 개도(%)를 반환한다."""
     if not realtime:
         return joint_positions(robot.get_observation())["gripper"]
     end = time.perf_counter() + timeout_s
-    last = joint_positions(robot.get_observation())["gripper"]
+    hold_obs = joint_positions(robot.get_observation())
+    hold_arm = {f"{m}.pos": hold_obs[m] for m in ARM_JOINTS}
+    last = hold_obs["gripper"]
     still = 0
-    while time.perf_counter() < end and still < 4:
+    while time.perf_counter() < end and still < 5:
+        if target_gripper is not None:
+            robot.send_action({**hold_arm, "gripper.pos": float(target_gripper)})
         time.sleep(0.06)
         now = joint_positions(robot.get_observation())["gripper"]
         still = still + 1 if abs(now - last) < 0.3 else 0
@@ -368,17 +377,17 @@ def execute_pick_and_place(
             detail=f"계획 실패 ({fail_code}): ({bx:.3f}, {by:.3f}) m",
         )
 
-    # 1. 준비 자세 및 그리퍼 열기
-    move_smooth(robot, {**DEFAULT_POSES["ready"], "gripper": 100.0}, speed_deg_s=ws.speed_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
+    # 1. 준비 자세 및 그리퍼 열기 (75%로 열어 불필요한 충돌·클램핑 방지)
+    move_smooth(robot, {**DEFAULT_POSES["ready"], "gripper": 75.0}, speed_deg_s=ws.speed_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
     # 2. 블록 위 접근
-    move_smooth(robot, {**plan.above_deg, "gripper": 100.0}, speed_deg_s=ws.speed_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
+    move_smooth(robot, {**plan.above_deg, "gripper": 75.0}, speed_deg_s=ws.speed_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
     # 3. 하강 및 처짐 보정
-    move_smooth(robot, {**plan.down_deg, "gripper": 100.0}, speed_deg_s=ws.slow_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
+    move_smooth(robot, {**plan.down_deg, "gripper": 75.0}, speed_deg_s=ws.slow_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
     sag_mm = trim_gravity_sag(robot, kin, [plan.grasp_x, plan.grasp_y, plan.grasp_z], plan.roll_rad, ws, realtime=realtime)
 
     # 4. 그리퍼 닫기 및 파지 확인
-    move_smooth(robot, {"gripper": 0.0}, speed_deg_s=ws.speed_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
-    grip = wait_gripper_settled(robot, realtime=realtime)
+    move_smooth(robot, {"gripper": 0.0}, speed_deg_s=ws.slow_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
+    grip = wait_gripper_settled(robot, realtime=realtime, target_gripper=0.0)
     held = grip > ws.grasp_min_opening
 
     # 5. 상승
@@ -420,9 +429,10 @@ def execute_pick_and_place(
 
     # 7. 상자 위에서 그리퍼 열기 후 복귀
     move_smooth(robot, plan.box_release_deg, speed_deg_s=ws.slow_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
-    move_smooth(robot, {"gripper": 100.0}, speed_deg_s=ws.speed_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
+    move_smooth(robot, {"gripper": 75.0}, speed_deg_s=ws.speed_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
+    wait_gripper_settled(robot, timeout_s=0.6, realtime=realtime, target_gripper=75.0)
     if realtime:
-        time.sleep(0.3)
+        time.sleep(0.2)
     move_smooth(robot, plan.box_above_deg, speed_deg_s=ws.speed_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
     move_smooth(robot, {**DEFAULT_POSES["rest"], "gripper": 15.0}, speed_deg_s=ws.speed_deg_s, rate_hz=ws.rate_hz, realtime=realtime)
 

@@ -25,7 +25,7 @@ import config  # noqa: E402
 from so101.calib import load_intrinsics  # noqa: E402
 from so101.camera import open_camera, read_frame, require_gui  # noqa: E402
 from so101.fk import SO101Kinematics  # noqa: E402
-from so101.homography import HomographyCalib, TopViewRayCalib, fit_homography  # noqa: E402
+from so101.homography import HomographyCalib, TopViewRayCalib, apply_homography, fit_homography  # noqa: E402
 from so101.robot import ALL_MOTORS, connect_follower, connect_leader, joint_positions  # noqa: E402
 
 
@@ -46,7 +46,9 @@ def verify_live(calib_path: Path) -> None:
     def on_click(event, x, y, *_):
         nonlocal clicked
         if event == cv2.EVENT_LBUTTONDOWN:
-            rx, ry = h_calib.pixel_to_xy(x, y)
+            # view는 이미 cv2.undistort 된 영상이므로 H만 직접 적용한다.
+            rx, ry = apply_homography(h_calib.H, [x, y])
+            rx, ry = float(rx), float(ry)
             clicked = (x, y, rx, ry)
             print(f"픽셀 (u={x}, v={y}) -> 로봇 베이스 (x={rx * 1000:.1f} mm, y={ry * 1000:.1f} mm)")
 
