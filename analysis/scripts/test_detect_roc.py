@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from so101.detect_ablation import DETECTOR_ORDER, AblationParams, build_booth_roi_mask
-from so101.detect_roc import build_edges, image_hist, label_masks, roc_from_hists, score_map
+from detect_roc import build_edges, image_hist, label_masks, roc_from_hists, score_map
 
 # make_mask_* 의 형태학 처리 전 이진 판정을 그대로 재현한 기준 구현
 from so101 import detect_ablation as da

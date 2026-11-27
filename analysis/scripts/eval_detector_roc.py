@@ -1,8 +1,8 @@
 """검출기 7종 픽셀 단위 ROC·PR 분석 (기존 검출기 비교 프레임 80장 재사용, 추가 촬영 없음).
 
 사용법:
-  python scripts/eval_detector_roc.py
-  python scripts/eval_detector_roc.py --r-pos 6 --r-neg 30 --n-boot 1000
+  python analysis/scripts/eval_detector_roc.py
+  python analysis/scripts/eval_detector_roc.py --r-pos 6 --r-neg 30 --n-boot 1000
 
 입력 (scripts/capture_detector_eval.py 가 만든 것):
   data/detector_ablation/manifest.csv, frames/*.png, bg_empty.png
@@ -13,7 +13,7 @@
   data/detector_ablation/roc_auc.csv, roc_summary.md
 
 방법 요약:
-  - 각 검출기를 같은 판정 규칙의 연속 점수로 바꾼다 (so101/detect_roc.py).
+  - 각 검출기를 같은 판정 규칙의 연속 점수로 바꾼다 (analysis/scripts/detect_roc.py).
   - 정답 중심에서 r_pos 이내 = 블록 픽셀, r_neg 보다 먼 ROI 픽셀 = 배경 픽셀, 사이는 제외.
   - 파라미터 보정은 scripts/eval_detectors.py 와 똑같이 base 프레임과 bg_empty 로만 한다.
   - 형태학 처리(OPEN/CLOSE)와 최대 윤곽선 선택 전의 "픽셀 분류" 성능만 본다.
@@ -27,7 +27,7 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import cv2  # noqa: E402
 import matplotlib  # noqa: E402
 
@@ -46,7 +46,7 @@ from so101.detect_ablation import (  # noqa: E402
     calibrate_rgb_box_from_base,
     calibrate_rgb_diff_from_bg,
 )
-from so101.detect_roc import build_edges, image_hist, label_masks, roc_from_hists, score_map  # noqa: E402
+from detect_roc import build_edges, image_hist, label_masks, roc_from_hists, score_map  # noqa: E402
 
 COND_ORDER = ["base", "new_pos", "color_change", "light_change"]
 COND_LABELS = {

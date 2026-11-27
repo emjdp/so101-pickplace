@@ -2,7 +2,9 @@
 
 소프트웨어융합개론 텀프로젝트 1팀 (김재현, 박성호).
 
-SO-101 로봇팔로 블록을 집어 상자에 넣는다. 시스템 A는 탑뷰 영상에서 블록을 찾아 역기구학으로 관절 목표를 계산한다. 시스템 B는 리더암으로 녹화한 시연을 ACT로 학습하고, 탑뷰 영상과 현재 관절 상태로 다음 동작을 예측한다.
+SO-101 로봇팔로 블록을 집어 상자에 넣는다. 시스템 A는 탑뷰 영상에서 블록을 찾아 역기구학으로 관절 목표를 계산한다. 시스템 B는 리더암으로 녹화한 시연을 ACT로 학습하고, 탑뷰·손목 영상과 현재 관절 상태로 다음 동작을 예측한다.
+
+[최종보고서](docs/so101-final-report.pdf) · [실기 160회 결과](data/experiments/summary.md) · [검출기 7종 비교](data/detector_ablation/summary.md) · [추가 분석](analysis/결과요약.md)
 
 ## 환경 준비
 
@@ -45,14 +47,14 @@ python scripts/run_system_a.py blue
 
 ## 시스템 B · ACT
 
-본 비교용 시연은 탑뷰만 써서 약 50개를 모은다. 손목 카메라를 추가할 때는 별도 데이터셋을 사용한다. 녹화 세션을 다시 시작해도 같은 데이터셋에는 같은 카메라 구성을 유지한다.
+최종 평가에는 탑뷰·손목 영상과 관절 상태를 담은 50개 시연(9,586프레임, 30 fps)으로 학습한 정책을 썼다. 녹화 세션을 다시 시작해도 같은 데이터셋에는 같은 카메라 구성을 유지한다. 학습에 사용한 원본 시연 아카이브와 체크포인트는 Git에 포함되어 있지 않다. 같은 장치 구성으로 시연을 새로 수집하려면 아래 절차를 따른다.
 
 ```bash
 # 터미널 1
 tools/lock_camera_live.sh --watch
 
 # 터미널 2
-tools/record_act.sh 10 --top-only
+tools/record_act.sh 10        # 손목 카메라가 연결된 상태로 반복해 50회 수집
 tools/record_act.sh --pack  # 시연 수집을 마친 뒤 실행
 ```
 
@@ -75,16 +77,29 @@ python scripts/run_system_b.py
 
 ## A/B 비교 절차
 
-기본, 새 위치, 색 변경, 조명 변경 조건에서 방식별 20회씩 총 160회를 계획했다. 조건별로 블록 시작 위치와 방향 20개를 정해 A와 B에 똑같이 적용하고, 순서를 번갈아 가며 시행한다. 매번 팔의 시작 자세와 상자 위치를 맞춘다. 색 변경 조건에서는 블록 색만 바꾸고 HSV 범위와 정책을 그대로 둔다.
+기본, 새 위치, 색 변경, 조명 변경 조건에서 방식별 20회씩 총 160회를 평가했다. A는 40/80회, B는 59/80회 성공했다. 색 변경에서는 파란색 HSV 범위와 ACT 정책을 유지하고 빨간 블록으로 바꿨다. B 실기 로그에는 시행별 시작 위치·방향을 남기지 않아 위치별 대응 비교는 할 수 없다.
 
-블록 전체가 제한 시간 안에 상자에 들어가 2초 이상 머무르면 성공이다. 현재 실행 스크립트는 서로 다른 구간의 시간을 기록하므로, 본 평가에서는 두 방식 모두 첫 명령부터 성공 판정까지 같은 기준으로 잰다. 예비 실험 뒤 제한 시간을 확정하고, 시행별 위치·방향과 실패 원인을 함께 남긴다.
+실행 후 블록이 상자에 들어갔는지 확인하고 GUI에서 결과를 저장한다. A 로그의 시간에는 경로 계산과 휴식 자세 복귀가 들어가고, B는 평가자가 정책을 정지할 때까지 기록한다. B 평가기의 기본 실행 제한은 30초이며, 두 시간은 각 실행기의 기록값이다. 다시 실기 평가할 때에는 `--csv`와 `--summary`로 별도 파일을 지정한다.
 
 ```bash
-python scripts/eval_compare.py interactive --system A --condition base --count 20
-python scripts/eval_compare.py summary --out data/experiments/summary.md
+python scripts/eval_system_a_live.py --condition base --csv /tmp/so101-trials.csv --summary /tmp/so101-summary.md
+python scripts/eval_system_b_live.py --condition base --csv /tmp/so101-trials.csv --summary /tmp/so101-summary.md
+python scripts/eval_compare.py summary --out /tmp/so101-published-summary.md
 ```
 
-`--dry-run`에서는 `--log`를 빼고 실행한다. 두 옵션을 함께 쓰면 가상 시행도 기본 실험 CSV에 들어간다. 현재 확인한 범위는 테스트 50개, 시스템 A의 합성 영상 실행, 기존 ACT 체크포인트를 사용한 시스템 B의 CPU 추론이다. 새 블록 시연으로 학습한 정책과 두 방식의 실기 비교 결과는 확인이 필요하다.
+`--dry-run`에서는 `--log`를 빼고 실행한다. 두 옵션을 함께 쓰면 가상 시행도 기본 실험 CSV에 들어간다. 기본 테스트 54개와 ROC 테스트 9개는 `python -m pytest -q tests analysis/scripts/test_detect_roc.py`로 실행한다.
+
+## 검출기 비교 재현
+
+공개한 [시행별 결과](data/detector_ablation/results.csv)에서 7종 검출기의 판정과 위치 오차를 확인할 수 있다. [추가 분석 표](analysis/tables/)에는 ROC, 임계값 재조정, 시연 위치·밝기, 통계 검정 결과가 있다. 검출부터 다시 계산하려면 원본 프레임 80장과 `bg_empty.png`를 준비하거나, 같은 절차로 사진을 새로 찍는다.
+
+```bash
+python scripts/capture_detector_eval.py --out-dir /tmp/so101-detector
+python scripts/eval_detectors.py --data-dir /tmp/so101-detector --fig-dir /tmp/so101-detector/figures
+python analysis/scripts/eval_detector_roc.py --data-dir /tmp/so101-detector --fig-dir /tmp/so101-detector/figures
+```
+
+기본 조명에서 빈 작업대를 먼저 저장하고, 네 조건에서 20장씩 블록 중심을 표시해 저장한다. 색 변경에는 빨간 블록을 사용한다. 정검출은 표시한 중심 20 px 이내로 판정한다. 당시 평가에 사용한 프레임은 Git에 포함되어 있지 않으며, `analysis/scripts/`의 일부 후처리 스크립트에는 원래 작업 경로가 남아 있다.
 
 ## 원격 텔레오퍼레이션
 
