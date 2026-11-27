@@ -72,11 +72,11 @@ else
 fi
 
 if [ "$TOP_ONLY" = false ] && [ -e /dev/soarm_cam_wrist ]; then
-    echo "📷 카메라 구성: top (/dev/soarm_cam_top) + wrist (/dev/soarm_cam_wrist) [MJPG]"
-    CAMERAS='{ wrist: {type: opencv, index_or_path: /dev/soarm_cam_wrist, width: 640, height: 480, fps: 30, fourcc: "MJPG"}, top: {type: opencv, index_or_path: /dev/soarm_cam_top, width: 640, height: 480, fps: 30, fourcc: "MJPG"}}'
+    echo "📷 카메라 구성: top (/dev/soarm_cam_top) [YUYV] + wrist (/dev/soarm_cam_wrist) [MJPG]"
+    CAMERAS='{ wrist: {type: opencv, index_or_path: /dev/soarm_cam_wrist, width: 640, height: 480, fps: 30, fourcc: "MJPG", warmup_s: 3}, top: {type: opencv, index_or_path: /dev/soarm_cam_top, width: 640, height: 480, fps: 30, fourcc: "YUYV", warmup_s: 3}}'
 else
     echo "📷 카메라 구성: top 단독 (/dev/soarm_cam_top) [YUYV]"
-    CAMERAS='{ top: {type: opencv, index_or_path: /dev/soarm_cam_top, width: 640, height: 480, fps: 30, fourcc: "YUYV"}}'
+    CAMERAS='{ top: {type: opencv, index_or_path: /dev/soarm_cam_top, width: 640, height: 480, fps: 30, fourcc: "YUYV", warmup_s: 3}}'
 fi
 
 echo "ℹ  녹화 전 다른 터미널에서 tools/lock_camera_live.sh 를 띄워 노출·화이트밸런스를 고정하세요."
@@ -105,5 +105,5 @@ exec lerobot-record \
     --dataset.private=true \
     --dataset.streaming_encoding=true \
     --dataset.encoder_threads=2 \
-    --display_data=true \
+    --display_data=false \
     "${RESUME_ARGS[@]}"

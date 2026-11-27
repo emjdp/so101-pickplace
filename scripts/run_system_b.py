@@ -57,9 +57,9 @@ def main() -> None:
             cams[k] = lambda: dummy_img
     else:
         cam_devs = {"top": config.TOP_CAM, "wrist": config.WRIST_CAM}
-        fourcc = "MJPG" if len(runner.camera_keys) > 1 else config.CAM_FOURCC
         for k in runner.camera_keys:
             dev = cam_devs.get(k, f"/dev/soarm_cam_{k}")
+            fourcc = "MJPG" if k == "wrist" else config.CAM_FOURCC
             cap = open_camera(dev=dev, fourcc=fourcc)
             caps.append(cap)
             cams[k] = cap
