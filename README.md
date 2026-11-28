@@ -1,114 +1,86 @@
 # SO-101 픽앤플레이스
 
-소프트웨어융합개론 텀프로젝트 1팀 (김재현, 박성호).
+![Ubuntu 24.04](https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white)
+![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![LeRobot 0.6.1](https://img.shields.io/badge/LeRobot-0.6.1-FFD21E?logo=huggingface&logoColor=black)
+![OpenCV 4.13.0.92](https://img.shields.io/badge/OpenCV-4.13.0.92-5C3EE8?logo=opencv&logoColor=white)
+![PyTorch 2.11.0 CPU](https://img.shields.io/badge/PyTorch-2.11.0%2Bcpu-EE4C2C?logo=pytorch&logoColor=white)
 
-SO-101 로봇팔로 블록을 집어 상자에 넣는다. 시스템 A는 탑뷰 영상에서 블록을 찾아 역기구학으로 관절 목표를 계산한다. 시스템 B는 리더암으로 녹화한 시연을 ACT로 학습하고, 탑뷰·손목 영상과 현재 관절 상태로 다음 동작을 예측한다.
+SO-101 로봇팔로 25 mm 블록을 집어 상자에 넣는 작업을 **탑뷰 비전·기구학 제어(A)**와 **ACT 모방학습(B)**으로 구현했다. 실기 160회에서 A는 **40/80회(50.0%)**, B는 **59/80회(73.8%)** 성공했다.
 
-[최종보고서](docs/so101-final-report.pdf) · [실기 160회 결과](data/experiments/summary.md) · [검출기 7종 비교](data/detector_ablation/summary.md) · [추가 분석](analysis/결과요약.md)
+[![빨간 블록 실기 5초 미리보기. A는 블록을 검출하지 못하고 B는 집어 상자에 넣는다. 클릭하면 YouTube 전체 시연으로 이동한다.](docs/media/so101-demo-preview.gif)](https://youtu.be/sfKooGZY-iI)
 
-## 환경 준비
+**[▶ 전체 시연 보기 · YouTube · 2분 16초](https://youtu.be/sfKooGZY-iI)**
 
-Ubuntu 24.04, Python 3.12, LeRobot 0.6.1 (`d36f429`) 환경에서 확인했다. 기존 LeRobot 환경이 있으면 그대로 쓰면 된다. 새 환경에서는 이 저장소의 루트에서 다음 명령을 실행한다.
+[실기 결과](#실기-160회) · [시스템 구성](#시스템-구성) · [실패 분석](#실패-분석) · [재현 가이드](docs/reproduce.md) · [최종보고서 PDF](docs/so101-final-report.pdf)
 
-```bash
-conda create -n lerobot python=3.12
-conda activate lerobot
-python -m pip install 'lerobot[core_scripts,feetech] @ git+https://github.com/huggingface/lerobot.git@d36f429a304d87ef0a4ffc6c17ce0feb28b30e0d'
-python -m pip uninstall -y opencv-python-headless
-python -m pip install opencv-python==4.13.0.92 pytest yourdfpy matplotlib
-git clone https://github.com/TheRobotStudio/SO-ARM100.git third_party/SO-ARM100
-git -C third_party/SO-ARM100 checkout a758567c3978dfeefe282ede0500085a48fe8f78
-python -m pytest -q
-```
+경희대학교 소프트웨어융합개론 텀프로젝트 1팀 · 김재현, 박성호
 
-카메라 미리보기나 HSV 조정 창을 띄우려면 일반 OpenCV 빌드가 필요하다. 실기에서는 ROS 2를 불러오지 않은 터미널을 쓰고, 장치 시리얼이 다르면 `udev/99-soarm.rules`를 고친 뒤 적용한다. 모터나 카메라 장착 위치를 바꿨으면 기존 보정값도 다시 확인한다.
+## 실기 160회
 
-```bash
-sudo install -m 644 udev/99-soarm.rules /etc/udev/rules.d/
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-python tools/check_setup.py
-```
+같은 팔로워암과 작업대에서 기본, 새 위치, 색 변경, 조명 변경 조건을 두 시스템으로 각각 20회씩 시험했다. 블록이 상자에 들어가면 성공으로 기록했다. A는 탑뷰 카메라 한 대, B는 탑뷰와 손목 카메라 두 대 및 관절 상태를 사용했다.
 
-## 시스템 A · 기구학 제어
+| 조건 | A · 기구학 | B · ACT |
+| --- | ---: | ---: |
+| 기본 | 15/20 (75%) | 19/20 (95%) |
+| 새 위치 | 15/20 (75%) | 13/20 (65%) |
+| 색 변경 | 0/20 (0%) | 20/20 (100%) |
+| 조명 변경 | 10/20 (50%) | 7/20 (35%) |
+| **전체** | **40/80 (50.0%)** | **59/80 (73.8%)** |
 
-HSV로 블록의 중심과 방향을 찾는다. 호모그래피로 로봇 기준 위치를 구한 뒤 접근, 하강, 파지, 이송, 놓기, 복귀 순서로 움직인다. 모터와 카메라 보정값은 `calib/`에 있다.
+![조건별 A와 B의 성공률과 95% Wilson 신뢰구간](analysis/figures/fig6_ab_significance.png)
 
-```bash
-python scripts/run_system_a.py blue --dry-run  # 합성 영상과 가상 팔로워
-tools/lock_camera.sh
-python tools/hsv_tuner.py blue                 # s 키로 HSV 범위 저장
-python scripts/detect_live.py blue --undistort
-python scripts/calib_homography.py --verify
-python scripts/run_system_a.py blue
-```
+- **전체 격차는 색 변경에서 생겼다.** 기존 파란색 HSV 설정과 ACT 정책을 유지한 채 빨간 블록을 넣자 A는 20회 모두 검출에 실패했고, B는 20회 모두 옮겼다. 그림에는 보정 전 Fisher 검정 p값을 표시했다. 네 조건을 Holm 보정한 뒤에도 성공률 차이가 뚜렷한 조건은 색 변경이었다(p < 0.001). 두 시스템의 카메라 구성이 달라 손목 영상의 기여도는 따로 측정하지 못했다. [통계 표](analysis/tables/ab_stats.csv)
+- **성공 시행의 기록 시간 중앙값은 A 26.8초, B 5.4초였다.** A는 경로 계산과 휴식 자세 복귀까지, B는 평가자가 정책을 정지할 때까지 기록했다. [시간 분포](data/report_figures/fig2_elapsed_time.png) · [시행 로그](data/experiments/trials.csv)
 
-카메라 내부 보정을 다시 하려면 [체커보드 PDF](output/pdf/checkerboard_9x6_25mm.pdf)를 실제 크기 100%로 인쇄하고, 잰 칸 크기를 `scripts/calib_intrinsics.py --square-mm`에 넘긴다. 카메라 외부 자세에서 블록 윗면(25 mm) 기준 호모그래피를 다시 만들려면 `python scripts/calib_homography.py --from-extrinsics --plane-z 0.025`를 실행한다. 외부 자세로 계산한 호모그래피의 `rms_mm: 0.0`은 실측 위치 오차로 쓰지 않는다. 실기에서는 별도로 찍은 기준점의 위치와 투영 좌표를 비교한다.
+## 시스템 구성
 
-## 시스템 B · ACT
+![SO-101 리더암과 팔로워암이 놓인 실험대, 상부에 장착한 Logitech C270과 조명](docs/media/bench-setup.jpg)
 
-최종 평가에는 탑뷰·손목 영상과 관절 상태를 담은 50개 시연(9,586프레임, 30 fps)으로 학습한 정책을 썼다. 녹화 세션을 다시 시작해도 같은 데이터셋에는 같은 카메라 구성을 유지한다. 학습에 사용한 원본 시연 아카이브와 체크포인트는 Git에 포함되어 있지 않다. 같은 장치 구성으로 시연을 새로 수집하려면 아래 절차를 따른다.
+### A · 탑뷰 비전과 기구학 제어
 
-```bash
-# 터미널 1
-tools/lock_camera_live.sh --watch
+Logitech C270 영상에서 렌즈 왜곡을 보정하고, HSV 마스크로 블록의 중심과 방향을 구한다. 블록 윗면 높이(25 mm)에 맞춘 호모그래피로 로봇 베이스 좌표를 얻고, URDF 기반 해석·수치 역기구학으로 파지 자세와 이송 경로를 계산한다. 하강 후 관절을 다시 읽어 끝점 오차를 한 차례 보정한다. [검출 코드](so101/detect.py) · [호모그래피](so101/homography.py) · [역기구학](so101/ik.py) · [동작 계획](so101/pickplace.py)
 
-# 터미널 2
-tools/record_act.sh 10        # 손목 카메라가 연결된 상태로 반복해 50회 수집
-tools/record_act.sh --pack  # 시연 수집을 마친 뒤 실행
-```
+![시스템 A의 실기 장면. 왼쪽부터 블록에 접근하고, 집고, 상자에 놓는다](docs/media/kinematics-pickplace.jpg)
 
-녹화 중 오른쪽 화살표로 현재 에피소드를 저장하고, 왼쪽 화살표로 해당 에피소드를 다시 찍는다. `Esc`로 세션을 끝낸다.
+### B · ACT 모방학습
 
-`data/so101_pickplace_dataset.tar.gz`를 Seraph의 `/data/$USER/datasets/`에 올린다. LeRobot 학습 환경을 준비하고, 로그 디렉터리를 만든 뒤 `seraph/train_act.sbatch`를 제출한다.
+리더암으로 시연 50개를 수집했다. 30 fps로 기록한 9,586프레임에는 탑뷰·손목 영상과 관절 상태, 목표 명령이 들어 있다. ACT(Action Chunking with Transformers)는 현재 관측에서 100스텝의 관절 명령을 한 묶음으로 예측한다. Seraph의 RTX 3090 한 대에서 배치 8로 100,000스텝을 학습했고, 상단 PyTorch 버전은 로컬 CPU 추론에 사용한 환경이다. [수집 스크립트](tools/record_act.sh) · [학습 설정](seraph/train_act.sbatch) · [학습 곡선](data/report_figures/fig4_act_training_loss.png) · [추론 코드](so101/act.py)
 
-```bash
-mkdir -p "/data/$USER/logs"
-WANDB_MODE=offline sbatch seraph/train_act.sbatch
-```
+![시스템 B의 색 변경 실기. 탑뷰와 손목 영상에서 빨간 블록의 접근, 파지, 이송을 볼 수 있다](docs/media/act-color-change.jpg)
 
-학습을 마치면 `checkpoints/last/pretrained_model`을 로컬의 `outputs/act_pickplace/pretrained_model`로 내려받는다. 먼저 가상 관절값과 영상으로 추론을 확인한 뒤 실기에서 실행한다.
+## 실패 분석
 
-```bash
-python scripts/run_system_b.py --dry-run
-tools/lock_camera.sh
-python scripts/run_system_b.py
-```
+### 어두운 사진에서도 HSV 임계값을 다시 맞추면 검출이 회복됐다
 
-## A/B 비교 절차
+![기본 조건에서 임계값을 다시 선택한 전후의 검출기별 정검출률](analysis/figures/fig7_threshold_retune.png)
 
-기본, 새 위치, 색 변경, 조명 변경 조건에서 방식별 20회씩 총 160회를 평가했다. A는 40/80회, B는 59/80회 성공했다. 색 변경에서는 파란색 HSV 범위와 ACT 정책을 유지하고 빨간 블록으로 바꿨다. B 실기 로그에는 시행별 시작 위치·방향을 남기지 않아 위치별 대응 비교는 할 수 없다.
+조명 변경 사진에서 기존 HSV의 **픽셀 ROC AUC는 1.000**으로 반올림됐다. 픽셀 점수로 블록과 배경을 잘 가를 수 있었고, 기존 임계값을 적용했을 때 블록 중심을 맞힌 사진은 **11/20장**이었다. 기본 사진과 빈 작업대만으로 임계값을 다시 고르자 어두운 사진에서도 **20/20장**을 맞혔다. 파란색 HSV의 빨간 블록 검출은 재조정 뒤에도 **0/20장**이었다. [픽셀 ROC](analysis/figures/fig1_detector_roc.png) · [조건별 AUC](analysis/figures/fig2_detector_auc_heatmap.png)
 
-실행 후 블록이 상자에 들어갔는지 확인하고 GUI에서 결과를 저장한다. A 로그의 시간에는 경로 계산과 휴식 자세 복귀가 들어가고, B는 평가자가 정책을 정지할 때까지 기록한다. B 평가기의 기본 실행 제한은 30초이며, 두 시간은 각 실행기의 기록값이다. 다시 실기 평가할 때에는 `--csv`와 `--summary`로 별도 파일을 지정한다.
+색까지 바뀌는 조건에서는 **정규화 RGB 배경 차분**이 빨간 블록 20/20장을 포함해 **78/80장(97.5%)**으로 가장 많이 맞혔다. 평균 연산 시간은 **17.36 ms**로 기존 HSV의 **0.42 ms**보다 길었다. 이 비교는 7종 검출기를 별도 사진 80장에 적용하고, 표시한 중심에서 20 px 이내를 정검출로 집계한 결과다. [검출기별 결과](data/detector_ablation/summary.md) · [검출 마스크](data/report_figures/fig6_detector_masks.png)
+
+### ACT의 어두운 조건 실패는 대부분 파지에서 나왔다
+
+![ACT 시연 표본과 검출기 비교 사진의 작업대 밝기 분포](analysis/figures/fig4_brightness.png)
+
+B의 성공률은 기본 **95%**에서 조명 변경 **35%**로 떨어졌다. 조명 변경 실패 13회 중 **12회가 파지 실패**였다. 별도로 찍은 조명 변경 사진 20장의 작업대 평균 밝기는 모두 ACT 시연 표본 320프레임의 최솟값(HSV V 128)보다 낮았다. B의 개별 시험 영상과 시작 좌표는 기록이 제한적이라 밝기나 위치가 각 실패에 얼마나 영향을 주었는지는 확인하기 어렵다. [시연 위치 분포](analysis/figures/fig3_demo_coverage.png) · [실패 유형 집계](data/experiments/summary.md)
+
+### A는 검출한 뒤에도 파지에서 실패했다
+
+![시스템 A의 시작 위치와 시행 순서별 성공 및 실패 기록](analysis/figures/fig8_A_failure_map.png)
+
+A는 기본 조건에서 블록을 20회 모두 검출했고 그중 5회가 파지에서 실패했다. 이 시행들은 시작 위치가 거의 같았다. 전체 파지 실패 13회의 그리퍼 개도는 **0.7%**, 사람이 블록을 쥔 시연의 개도는 **9.9~14.3%**로, 실행 코드의 빈손 판정 기준인 **4%**가 두 범위 사이에 있었다. [그리퍼 개도](analysis/figures/fig5_gripper_speed.png)
+
+A의 검출기를 정규화 RGB 배경 차분으로 교체하는 가상 분석에서는 색 변경 성공률을 **약 75%**로 추정했다. 빨간 블록의 사진 정검출률(20/20)에 나머지 조건의 검출 후 실기 성공률(40/53)을 곱한 값이다. [검출기 교체 시 추정치](analysis/figures/fig9_whatif.png) · [분석 전체](analysis/결과요약.md)
+
+## 재현
+
+환경을 설치한 뒤 로봇 없이 A의 집기 흐름을 확인하고, 공개한 CSV에서 성공률 표를 다시 만들 수 있다. 설치 가이드는 LeRobot 커밋 `d36f429`와 SO-101 URDF 커밋 `a758567`를 사용한다. [설치와 실기 재현 가이드](docs/reproduce.md)
 
 ```bash
-python scripts/eval_system_a_live.py --condition base --csv /tmp/so101-trials.csv --summary /tmp/so101-summary.md
-python scripts/eval_system_b_live.py --condition base --csv /tmp/so101-trials.csv --summary /tmp/so101-summary.md
-python scripts/eval_compare.py summary --out /tmp/so101-published-summary.md
+python -m pytest -q tests analysis/scripts/test_detect_roc.py
+python scripts/run_system_a.py blue --dry-run
+python scripts/eval_compare.py summary
 ```
 
-`--dry-run`에서는 `--log`를 빼고 실행한다. 두 옵션을 함께 쓰면 가상 시행도 기본 실험 CSV에 들어간다. 기본 테스트 54개와 ROC 테스트 9개는 `python -m pytest -q tests analysis/scripts/test_detect_roc.py`로 실행한다.
-
-## 검출기 비교 재현
-
-공개한 [시행별 결과](data/detector_ablation/results.csv)에서 7종 검출기의 판정과 위치 오차를 확인할 수 있다. [추가 분석 표](analysis/tables/)에는 ROC, 임계값 재조정, 시연 위치·밝기, 통계 검정 결과가 있다. 검출부터 다시 계산하려면 원본 프레임 80장과 `bg_empty.png`를 준비하거나, 같은 절차로 사진을 새로 찍는다.
-
-```bash
-python scripts/capture_detector_eval.py --out-dir /tmp/so101-detector
-python scripts/eval_detectors.py --data-dir /tmp/so101-detector --fig-dir /tmp/so101-detector/figures
-python analysis/scripts/eval_detector_roc.py --data-dir /tmp/so101-detector --fig-dir /tmp/so101-detector/figures
-```
-
-기본 조명에서 빈 작업대를 먼저 저장하고, 네 조건에서 20장씩 블록 중심을 표시해 저장한다. 색 변경에는 빨간 블록을 사용한다. 정검출은 표시한 중심 20 px 이내로 판정한다. 당시 평가에 사용한 프레임은 Git에 포함되어 있지 않으며, `analysis/scripts/`의 일부 후처리 스크립트에는 원래 작업 경로가 남아 있다.
-
-## 원격 텔레오퍼레이션
-
-팔로워를 Raspberry Pi에 연결한 경우, 팔로워 쪽부터 실행한다. 리더는 관절값을 UDP 5560번 포트로 보낸다.
-
-```bash
-# Raspberry Pi
-python scripts/teleop_remote.py follower
-
-# 리더암이 연결된 노트북
-python scripts/teleop_remote.py leader  # 대상은 config.FOLLOWER_HOST에서 설정
-```
+공개 자료에는 소스 코드, 카메라·모터 보정값, 시행별 실기 기록, 검출기 평가 표가 들어 있다. B를 새로 학습하거나 검출기 평가를 다시 실행하려면 가이드에 따라 시연과 검출용 사진을 수집한다. [보정값](calib/) · [실기 CSV](data/experiments/trials.csv) · [검출기 CSV](data/detector_ablation/results.csv) · [분석 표](analysis/tables/)
